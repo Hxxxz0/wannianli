@@ -622,7 +622,7 @@ void onSpeechMessage(WebsocketsMessage message)
     Serial.println("语音服务器返回：" + message.data());
     DynamicJsonDocument doc(2048);
     DeserializationError err = deserializeJson(doc, message.data());
-    if (err.c_str()!="ok")
+    if (err.c_str()!="Ok")
     {
         Serial.print("语音JSON解析错误：");
         Serial.println(err.c_str());
@@ -725,7 +725,7 @@ void playTTS(String textToSpeak)
     // 解析 JSON 并获取音频 URL
     DynamicJsonDocument docResp(2048);
     DeserializationError err = deserializeJson(docResp, payload);
-    if (err.c_str()!="ok")
+    if (err.c_str()!="Ok")
     {
         Serial.print("TTS JSON解析错误：");
         Serial.println(err.c_str());
@@ -912,7 +912,7 @@ void onChatMessage(WebsocketsMessage message)
     Serial.println("大模型服务器返回：" + message.data());
     DynamicJsonDocument doc(2048);
     DeserializationError err = deserializeJson(doc, message.data());
-    if (err.c_str()!="ok")
+    if (err.c_str()!="Ok")
     {
         Serial.print("大模型JSON解析错误：");
         Serial.println(err.c_str());
