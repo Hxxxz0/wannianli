@@ -1,15 +1,17 @@
 <!DOCTYPE html>
-<html lang='en'>
+<html lang='zh-CN'>
 <head>
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>EDA-Robot</title>
+    <title>TV-PRO 智能时钟配置</title>
     <style>
-
         body {
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
         }
 
         .container {
@@ -19,86 +21,334 @@
             text-align: center;
         }
 
+        .config-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
         h1 {
+            color: #4a5568;
+            margin-bottom: 10px;
+            font-size: 2.2em;
+        }
+
+        .subtitle {
+            color: #718096;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+
+        .steps-guide {
+            background: #e8f4fd;
+            border-left: 4px solid #3182ce;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: left;
+        }
+
+        .steps-guide h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .step {
+            margin: 10px 0;
+            padding: 8px 0;
+            font-size: 1em;
+            color: #4a5568;
+        }
+
+        .step-number {
+            display: inline-block;
+            background: #3182ce;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
             text-align: center;
+            line-height: 24px;
+            margin-right: 10px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .form-section {
+            margin: 30px 0;
+        }
+
+        .section-title {
+            color: #2d3748;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .form-group {
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .required {
+            color: #e53e3e;
+        }
+
+        .search-box {
+            width: 100%;
+            height: 45px;
+            padding: 12px 15px;
+            background-color: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #3182ce;
+            box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
         }
 
         .button {
-            display: inline-block;
-            height: 30px;
-            width: 300px;
+            width: 100%;
+            height: 50px;
             margin-top: 20px;
-
-            padding: 10px 20px;
-            background-color: deepskyblue;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
             border: none;
-            border-radius: 20px; /* 添加圆角 */
-            text-decoration: none;
-            line-height: 2; /* 通过调整line-height的值来调整文字的垂直位置 */
-            text-align: center; /* 文字居中 */
-            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); /* 添加立体感 */
-            transition: all 0.3s ease; /* 添加过渡效果 */
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
         .button:hover {
-            background-color: skyblue; /* 鼠标悬停时的背景颜色 */
-            transform: translateY(2px); /* 点击效果 */
-            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3); /* 添加更多立体感 */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
         }
-        .search-box {
-            margin-top: 20px;
-            display: inline-block;
-            height: 30px;
-            width: 300px;
-            padding: 5px 10px;
-            background-color: #f0f0f0;
-            border: 1px solid #ccc;
-            border-radius: 20px;
-            text-align: center; /* 文字居中 */
+
+        .button:active {
+            transform: translateY(0);
         }
-        .hidden {
-            display: none; /* 初始隐藏 */
+
+        .info-section {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #4a5568;
+        }
+
+        .info-value {
+            color: #718096;
+        }
+
+        .warning {
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 15px 0;
+            color: #c53030;
+            font-size: 0.9em;
+        }
+
+        .feature-highlight {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #2d5016;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .config-card {
+                padding: 20px;
+                margin: 10px 0;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
         }
     </style>
-
 </head>
 <body>
-<form action='/connect' method='POST'>
     <div class='container'>
-        <h1>TV-PRO设备配置页</h1>
-        <p>本项目基于立创ESP32S3开发板开发</p>
-        <input type='text' name='ssid' placeholder='输入WIFI名称' class='search-box'>
-        <input type='password' name='pass' placeholder='输入WIFI密码' class='search-box'>
-        <input type='appid' name='appid' placeholder='输入讯飞Appid' class='search-box'>
-        <input type='apikey' name='apikey' placeholder='输入讯飞ApiKey' class='search-box'>
-        <input type='apisecret' name='apisecret' placeholder='输入讯飞ApiSecret' class='search-box'>
-        <input type='ttsapikey' name='ttsapikey' placeholder='输入万码云apikey' class='search-box'>
-        <input type='api' name='api' placeholder='输入心知天气API密钥' class='search-box'>
-        <input type='city' name='city' placeholder='输入城市拼音小写' class='search-box'>
-        <input type='submit'  style="height: 50px;width: 320px"  class='button'  value="保存">
-        <a href="https://lceda.cn/">
-            <table class="container button" style="height: 200px">
-                <tr>
-                    <th>设备名称:</th>
-                    <td>EDA-Robot</td>
-                </tr>
-                <tr>
-                    <th>内存大小:</th>
-                    <td>4MB</td>
-                </tr>
-                <tr>
-                    <th>控制台版本:</th>
-                    <td>V1.0</td>
-                </tr>
-                <tr>
-                    <th>官网:</th>
-                    <td> <a href="https://lceda.cn/">嘉立创EDA</a></td>
-                </tr>
+        <div class='config-card'>
+            <div class='header'>
+                <h1>🕐 TV-PRO 智能时钟配置</h1>
+                <p class='subtitle'>智能时钟设备 - 显示时间、日期和天气信息</p>
+            </div>
 
-            </table>
-        </a>
+            <div class='feature-highlight'>
+                <h3>📋 功能说明</h3>
+                <p><strong>主要功能：</strong></p>
+                <ul style="text-align: left; margin: 10px 0;">
+                    <li>⏰ 实时时间显示（24小时制）</li>
+                    <li>📅 日期和星期显示</li>
+                    <li>🌤️ 天气信息显示（温度、湿度）</li>
+                    <li>📶 WiFi连接状态显示</li>
+                    <li>🔄 自动WiFi重连机制</li>
+                </ul>
+                <p><strong>按键功能：</strong></p>
+                <ul style="text-align: left; margin: 10px 0;">
+                    <li>中键：手动刷新天气信息</li>
+                    <li>左键：重新连接WiFi</li>
+                    <li>右键：进入配置模式</li>
+                </ul>
+            </div>
+
+            <div class='steps-guide'>
+                <h3>🔗 连接步骤指南</h3>
+                <div class='step'>
+                    <span class='step-number'>1</span>
+                    确保您的手机/电脑已连接到 <strong>TV-PRO</strong> 热点
+                </div>
+                <div class='step'>
+                    <span class='step-number'>2</span>
+                    在下方表单中填写您的WiFi网络信息
+                </div>
+                <div class='step'>
+                    <span class='step-number'>3</span>
+                    填写天气配置（可选，用于显示天气信息）
+                </div>
+                <div class='step'>
+                    <span class='step-number'>4</span>
+                    点击"保存配置"按钮，设备将尝试连接
+                </div>
+                <div class='step'>
+                    <span class='step-number'>5</span>
+                    连接成功后设备将自动重启并开始显示时钟
+                </div>
+            </div>
+
+            <form action='/connect' method='POST'>
+                <div class='form-section'>
+                    <div class='section-title'>🌐 网络配置 <span class='required'>*必填</span></div>
+                    
+                    <div class='form-group'>
+                        <label class='form-label'>WiFi名称 <span class='required'>*</span></label>
+                        <input type='text' name='ssid' placeholder='请输入您的WiFi网络名称' class='search-box' required>
+                    </div>
+                    
+                    <div class='form-group'>
+                        <label class='form-label'>WiFi密码</label>
+                        <input type='password' name='pass' placeholder='请输入WiFi密码（无密码可留空）' class='search-box'>
+                    </div>
+                </div>
+
+                <div class='form-section'>
+                    <div class='section-title'>🌤️ 天气服务配置 <span style='color:#718096; font-size:0.9em'>（可选）</span></div>
+                    
+                    <div class='form-group'>
+                        <label class='form-label'>天气API密钥</label>
+                        <input type='text' name='api' placeholder='心知天气API密钥（获取地址：seniverse.com）' class='search-box'>
+                    </div>
+                    
+                    <div class='form-group'>
+                        <label class='form-label'>城市名称</label>
+                        <input type='text' name='city' placeholder='城市拼音小写，如：beijing、shanghai、guangzhou' class='search-box'>
+                    </div>
+                </div>
+
+                <div class='warning'>
+                    ⚠️ 温馨提示：只有WiFi配置是必填的，天气配置为可选项。如果不配置天气，设备将只显示时间和日期。
+                </div>
+
+                <input type='submit' class='button' value='💾 保存配置'>
+            </form>
+
+            <div class='info-section'>
+                <div class='section-title'>📋 设备信息</div>
+                <div class='info-row'>
+                    <span class='info-label'>设备名称:</span>
+                    <span class='info-value'>TV-PRO 智能时钟</span>
+                </div>
+                <div class='info-row'>
+                    <span class='info-label'>芯片型号:</span>
+                    <span class='info-value'>ESP32-S3</span>
+                </div>
+                <div class='info-row'>
+                    <span class='info-label'>内存大小:</span>
+                    <span class='info-value'>8MB Flash</span>
+                </div>
+                <div class='info-row'>
+                    <span class='info-label'>固件版本:</span>
+                    <span class='info-value'>V2.0 - 时钟版</span>
+                </div>
+                <div class='info-row'>
+                    <span class='info-label'>配置地址:</span>
+                    <span class='info-value'>http://192.168.4.1</span>
+                </div>
+                <div class='info-row'>
+                    <span class='info-label'>WiFi重连:</span>
+                    <span class='info-value'>5次失败后自动进入配置模式</span>
+                </div>
+                <div class='info-row'>
+                    <span class='info-label'>技术支持:</span>
+                    <span class='info-value'><a href="https://lceda.cn/" target="_blank">嘉立创EDA</a></span>
+                </div>
+            </div>
+        </div>
     </div>
-</form>
+
+    <script>
+        // 表单提交时的用户反馈
+        document.querySelector('form').addEventListener('submit', function() {
+            const button = document.querySelector('.button');
+            button.value = '⏳ 正在保存配置...';
+            button.disabled = true;
+            button.style.background = '#a0aec0';
+        });
+
+        // 页面加载完成提示
+        window.addEventListener('load', function() {
+            console.log('TV-PRO智能时钟配置页面加载完成');
+        });
+    </script>
 </body>
 </html>
