@@ -19,6 +19,7 @@
 #include "AudioFileSourceSPIFFS.h"
 #include "AudioGeneratorMP3.h"
 #include "AudioOutputI2S.h"
+#include <WiFiClientSecure.h>   // 新增：用于SMTP邮件发送
 
 
 /**************** MAX98357 I2S 引脚 ****************/
@@ -26,6 +27,11 @@
 #define SPK_LRC  16   // WS / LRC  
 #define SPK_DIN  7    // DIN
 // SD 引脚请直接接 3.3V（确保放大器启用）
+
+/**************** 火焰传感器引脚与阈值 ****************/
+#define PIN_DO 9   // 数字输出 DO
+#define PIN_AO 8   // 模拟输出 AO (ADC1)
+#define FLAME_THRESHOLD 40   // AO 百分比阈值 (0~100)
 
 // 音频对象 - 单例模式，避免重复创建
 AudioGeneratorMP3 *mp3;
@@ -133,6 +139,10 @@ void startMusicLoop();       // 新增：开始音乐循环播放函数声明
 void stopMusicLoop();        // 新增：停止音乐播放函数声明
 void serviceAudio();         // 新增：统一音频服务函数声明
 void audioTask(void *parameter); // 新增：音频任务声明
+void checkFlameSensor();     // 新增：火焰传感器检测函数声明
+void startFlameAlarm();      // 新增：火焰报警启动函数声明
+void stopFlameAlarm();       // 新增：火焰报警停止函数声明
+bool sendFlameAlertEmail(const String &subject, const String &body); // 新增：发送火焰警报邮件函数声明
 
 const char *ssidFile = "/ssid.json";
 const char *settingsFile = "/settings.json";  // 新增：设置文件
@@ -149,7 +159,7 @@ int currentState = 3; // 保留原有状态用于内部逻辑
 int lastState = 0; // 记录上次的显示状态
 
 // 页面切换相关变量
-int currentPage = 0; // 0: 主页面, 1: 详细天气页面, 2: 闹钟页面, 3: 事件提醒页面, 4: 网络信息页面, 5: 模拟时钟页面, 6: 报警页面
+int currentPage = 0; // 0: 主页面, 1: 详细天气页面, 2: 闹钟页面, 3: 事件提醒页面, 4: 网络信息页面, 5: 模拟时钟页面, 6: 报警页面, 7: 火焰报警页面
 int lastPage = -1; // 记录上次页面，用于刷新检测
 const int totalPages = 6; // 总页面数（不含报警页面）
 
@@ -184,6 +194,7 @@ TaskHandle_t displayTaskHandle = NULL;
 
 // Alarm ring control
 bool alarmRinging = false;
+bool flameAlarmActive = false; // 新增：火焰警报状态
 
 // Buzzer test control
 bool buzzerTesting = false;
@@ -202,6 +213,15 @@ TFT_eSPI mylcd = TFT_eSPI();
 String apiKey = "";
 String apiSecret = "";
 String appId = "";
+
+// SMTP 邮件配置
+const char* smtpServer = "smtp.163.com";    // SMTP服务器
+const int   smtpPort = 465;                 // SSL端口
+const char* smtpUser = "15253286380@163.com"; // 发件人邮箱
+const char* smtpPassword = "WP7KhS4Y9a5KSnmt"; // 邮箱授权码
+const char* emailRecipient = "980228683@qq.com"; // 收件人邮箱
+static bool emailSent = false;              // 火警邮件发送状态（避免重复发送）
+String emailErrorMsg = "";                 // 邮件发送错误信息
 
 ////////////////////////////
 // 全局对象及变量
@@ -537,7 +557,7 @@ void startConfigMode()
     mylcd.setTextColor(TFT_YELLOW);
     mylcd.drawString("Then open browser:", 5, 110, 1); // Y=110
     mylcd.setTextColor(TFT_GREEN);
-    mylcd.drawString("   http://192.168.4.1", 5, 130, 1); // Y=130
+    mylcd.drawString("http://192.168.4.1", 5, 130, 1); // Y=130
     
     mylcd.setTextColor(TFT_ORANGE);
     mylcd.drawString("Setup WiFi & API", 5, 160, 1); // Y=160
@@ -547,7 +567,7 @@ void startConfigMode()
     
     mylcd.setTextColor(TFT_GRAY);
     mylcd.drawLine(0, 200, 240, 200, TFT_GRAY); // Y=200，分割线
-    mylcd.drawString("Press button to exit", 5, 210, 1); // Y=210，底部提示
+    mylcd.drawString("Press button to exit", 0, 210, 1); // Y=210，底部提示
     
     // 启动Web服务器
     handleWiFiConfig();
@@ -1344,6 +1364,33 @@ void displayTask(void *parameter)
                 }
                 break;
             }
+
+            case 7: // 新增：火焰报警页面
+            {
+                if (pageChanged) {
+                    mylcd.fillScreen(TFT_RED); // 使用红色背景以示紧急
+                    mylcd.setTextColor(TFT_WHITE);
+                    mylcd.setTextSize(3);
+                    mylcd.drawString("FIRE ALARM!", 15, 80, 2);
+                    mylcd.setTextSize(2);
+                    mylcd.drawString("Press any button", 20, 150, 1);
+                    mylcd.drawString("to dismiss", 50, 170, 1);
+                }
+                
+                // 清除并更新邮件状态显示区域
+                mylcd.fillRect(10, 200, 220, 40, TFT_RED);
+                mylcd.setTextSize(1);
+                if (emailSent) {
+                    mylcd.setTextColor(TFT_GREEN);
+                    mylcd.drawString("Email: Success" , 10, 200, 1);
+                } else {
+                    mylcd.setTextColor(TFT_YELLOW);
+                    mylcd.drawString("Email: " + emailErrorMsg, 10, 200, 1);
+                }
+                
+                
+                break;
+            }
         }
 
         // 根据页面类型调整刷新率和策略
@@ -1529,6 +1576,19 @@ void setup()
         0
     );
     Serial.println("Audio task started");
+
+    // 设置音频输出
+    // audioOut->SetPinout(SPK_BCLK, SPK_LRC, SPK_DIN);
+    // audioOut->SetGain(0.8); // 设置音量 (0.0 到 4.0)
+
+    // 初始化火焰传感器引脚
+    pinMode(PIN_DO, INPUT);
+    pinMode(PIN_AO, INPUT);
+    analogReadResolution(12);       // 默认 12 位
+    analogSetAttenuation(ADC_11db); // 量程 0-3.3V
+
+    // 初始化音乐播放器
+    // initMusicPlayer();
 }
 
 // 按键处理函数（页面切换版）
@@ -1546,6 +1606,16 @@ void handleButtonPress()
     // If alarm is ringing, any button press stops it
     if (alarmRinging && (currentButtonMIDState == LOW || currentButtonLEFTState == LOW || currentButtonRIGHTState == LOW)) {
         stopAlarm();
+        // Debounce: wait until buttons released
+        while (digitalRead(BUTTON_MID) == LOW || digitalRead(BUTTON_LEFT) == LOW || digitalRead(BUTTON_RIGHT) == LOW) {
+            delay(10);
+        }
+        return;
+    }
+
+    // 新增：如果火焰警报激活，任何按键按下都会停止它
+    if (flameAlarmActive && (currentButtonMIDState == LOW || currentButtonLEFTState == LOW || currentButtonRIGHTState == LOW)) {
+        stopFlameAlarm();
         // Debounce: wait until buttons released
         while (digitalRead(BUTTON_MID) == LOW || digitalRead(BUTTON_LEFT) == LOW || digitalRead(BUTTON_RIGHT) == LOW) {
             delay(10);
@@ -1722,6 +1792,13 @@ void loop()
         lastAlarmCheck = millis();
     }
     
+    // 新增：火焰传感器检测（每200ms）
+    static unsigned long lastFlameCheck = 0;
+    if (millis() - lastFlameCheck > 200) {
+        checkFlameSensor();
+        lastFlameCheck = millis();
+    }
+
     // Handle unified audio service
     // 音频播放已由 audioTask 独立处理，这里无需再调用
      
@@ -2032,6 +2109,9 @@ void setupWebServer()
             </div>
             <div id='musicStatus' style='margin: 10px 0; padding: 10px; background: #f7fafc; border-radius: 6px; color: #4a5568; font-size: 0.9em; border: 1px solid #e2e8f0;'>
                 🎶 点击播放按钮开始播放音乐
+            </div>
+            <div id='alarmStatus' style='margin: 10px 0; padding: 10px; background: #f7fafc; border-radius: 6px; color: #e53e3e; font-size: 0.9em; border: 1px solid #e2e8f0; display: none;'>
+                <!-- 闹钟状态 -->
             </div>
         </div>
         
@@ -2634,6 +2714,8 @@ void setupWebServer()
         doc["auto_rotate"] = autoRotatePages;
         doc["rotate_interval"] = pageRotateInterval;
         doc["current_page"] = currentPage;
+        doc["alarm_ringing"] = alarmRinging ? "true" : "false";
+        doc["flame_alarm"] = flameAlarmActive ? "true" : "false"; // 新增火焰警报状态
         
         String output;
         serializeJson(doc, output);
@@ -3390,8 +3472,8 @@ void generateTone(int frequency, int durationMs) {
 void startAlarm() {
     alarmRinging = true;
     currentPage = 6; // switch to alarm page
-    audioJob = JOB_BEEP_LOOP; // 切换到蜂鸣音频
-    Serial.println("Alarm started - playing beep audio");
+    audioJob = JOB_MUSIC_LOOP; // 切换到音乐音频
+    Serial.println("Alarm started - playing music audio");
 }
 
 void stopAlarm() {
@@ -3545,5 +3627,236 @@ void audioTask(void *parameter) {
         serviceAudio();
         vTaskDelay(2 / portTICK_PERIOD_MS); // 约 2ms 一次
     }
+}
+
+// 新增：火焰传感器检测函数
+void checkFlameSensor() {
+    if (flameAlarmActive) return; // 如果警报已激活，则不进行检测
+
+    bool fireDigital = digitalRead(PIN_DO) == LOW; // 有火时 DO 输出低电平
+    int  rawValue    = analogRead(PIN_AO);
+    int  percentage  = map(rawValue, 0, 4095, 100, 0); // 值越小火焰越强
+
+    // 触发条件：DO 为低或 AO 百分比超过阈值
+    if (fireDigital || percentage > FLAME_THRESHOLD) {
+        startFlameAlarm();
+    }
+}
+
+// 新增：启动火焰警报
+void startFlameAlarm() {
+    if (flameAlarmActive) return; // 防止重复触发
+    flameAlarmActive = true;
+    currentPage = 7; // 切换到火焰警报页面
+    audioJob = JOB_BEEP_LOOP; // 播放蜂鸣音频
+    Serial.println("🔥 FIRE ALARM TRIGGERED! ��");
+    
+    // 发送火警邮件（如果尚未发送）
+    if (!emailSent) {
+        String subject = "智能万年历 火焰警报触发通知";
+        String body = "您的 智能万年历 设备检测到火焰！\n";
+        body += "时间: " + String(timeClient.getFormattedTime()) + "\n";
+        body += "请立即检查现场情况，确保安全！";
+        
+        if (sendFlameAlertEmail(subject, body)) {
+            emailSent = true;
+            emailErrorMsg = "邮件发送成功";
+            Serial.println("✅ 火警邮件发送成功");
+        } else {
+            Serial.println("❌ 火警邮件发送失败: " + emailErrorMsg);
+        }
+    }
+}
+
+// 新增：停止火焰警报
+void stopFlameAlarm() {
+    flameAlarmActive = false;
+    emailSent = false; // 重置邮件发送状态，允许下次火警时重新发送
+    currentPage = 0; // 返回主页面
+    audioJob = JOB_NONE; // 停止所有音频
+    Serial.println("Flame alarm dismissed by user.");
+}
+
+/* =========================
+   SMTP 邮件发送实现
+   ========================= */
+
+String base64Encode(const String &data)
+{
+    const char* b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    String result;
+    int i = 0;
+    unsigned char arr3[3];
+    unsigned char arr4[4];
+    int len = data.length();
+    const unsigned char *bytes = (const unsigned char*)data.c_str();
+    while (len--) {
+        arr3[i++] = *(bytes++);
+        if (i == 3) {
+            arr4[0] = (arr3[0] & 0xfc) >> 2;
+            arr4[1] = ((arr3[0] & 0x03) << 4) + ((arr3[1] & 0xf0) >> 4);
+            arr4[2] = ((arr3[1] & 0x0f) << 2) + ((arr3[2] & 0xc0) >> 6);
+            arr4[3] = arr3[2] & 0x3f;
+            for (i = 0; i < 4; i++) result += b64[arr4[i]];
+            i = 0;
+        }
+    }
+    if (i) {
+        for (int j = i; j < 3; j++) arr3[j] = '\0';
+        arr4[0] = (arr3[0] & 0xfc) >> 2;
+        arr4[1] = ((arr3[0] & 0x03) << 4) + ((arr3[1] & 0xf0) >> 4);
+        arr4[2] = ((arr3[1] & 0x0f) << 2) + ((arr3[2] & 0xc0) >> 6);
+        for (int k = 0; k < i + 1; k++) result += b64[arr4[k]];
+        while (i++ < 3) result += '=';
+    }
+    return result;
+}
+
+bool smtpAwait(WiFiClientSecure &client, int expectCode, const char* stage, uint32_t timeout = 10000)
+{
+    Serial.printf("等待SMTP响应 [%s] 期望代码: %d\n", stage, expectCode);
+    
+    uint32_t start = millis();
+    while (client.connected() && !client.available() && millis() - start < timeout) {
+        delay(10);
+    }
+    
+    if (!client.available()) {
+        emailErrorMsg = String(stage) + " timeout";
+        Serial.printf("❌ [%s] 超时\n", stage);
+        return false;
+    }
+
+    String fullResponse = "";
+    bool foundExpectedCode = false;
+    bool hasError = false;
+    
+    // 读取所有响应行
+    while (client.available()) {
+        String line = client.readStringUntil('\n');
+        line.trim();
+        if (line.length() > 0) {
+            fullResponse += line + "\n";
+            Serial.printf("接收: %s\n", line.c_str());
+            
+            // 检查响应码
+            if (line.length() >= 3) {
+                int code = line.substring(0,3).toInt();
+                bool isLastLine = (line.length() > 3 && line[3] == ' ');  // 检查是否是多行响应的最后一行
+                
+                if (code == expectCode && isLastLine) {
+                    foundExpectedCode = true;
+                } else if (code >= 400) {  // 4xx 和 5xx 是错误响应
+                    hasError = true;
+                    emailErrorMsg = line;
+                    Serial.printf("❌ [%s] 错误: %s\n", stage, line.c_str());
+                    break;
+                }
+            }
+        }
+    }
+    
+    if (foundExpectedCode) {
+        Serial.printf("✅ [%s] 成功\n", stage);
+        return true;
+    }
+    
+    if (!hasError) {
+        emailErrorMsg = String(stage) + " unexpected response: " + fullResponse;
+        Serial.printf("❌ [%s] 意外响应:\n%s\n", stage, fullResponse.c_str());
+    }
+    
+    return false;
+}
+
+bool sendFlameAlertEmail(const String &subject, const String &body)
+{
+    emailErrorMsg = ""; // 清空错误信息
+    
+    Serial.println("\n========= 开始发送邮件 =========");
+    Serial.printf("SMTP服务器: %s:%d\n", smtpServer, smtpPort);
+    Serial.printf("发件人: %s\n", smtpUser);
+    Serial.printf("收件人: %s\n", emailRecipient);
+    
+    if (WiFi.status() != WL_CONNECTED) {
+        emailErrorMsg = "WiFi not connected";
+        Serial.println("❌ WiFi未连接，无法发送邮件");
+        return false;
+    }
+
+    WiFiClientSecure client;
+    client.setTimeout(10000);
+    client.setInsecure(); // 跳过证书验证
+
+    Serial.println("\n正在连接SMTP服务器...");
+    if (!client.connect(smtpServer, smtpPort)) {
+        emailErrorMsg = "Cannot connect to SMTP server";
+        Serial.printf("❌ 无法连接到SMTP服务器 %s:%d\n", smtpServer, smtpPort);
+        return false;
+    }
+    Serial.println("✅ SSL连接已建立");
+
+    if (!smtpAwait(client, 220, "Server greeting")) return false;
+
+    // 使用完整的域名进行EHLO
+    client.println("EHLO esp32");
+    if (!smtpAwait(client, 250, "EHLO")) return false;
+
+    // 等待一小段时间
+    delay(100);
+
+    // 直接使用AUTH LOGIN
+    client.println("AUTH LOGIN");
+    if (!smtpAwait(client, 334, "Auth")) return false;
+
+    // 发送Base64编码的用户名（完整邮箱地址）
+    String username = "15253286380@163.com";
+    client.println(base64Encode(username));
+    if (!smtpAwait(client, 334, "Username")) return false;
+
+    // 发送Base64编码的密码（授权码）
+    String password = "WP7KhS4Y9a5KSnmt";
+    client.println(base64Encode(password));
+    if (!smtpAwait(client, 235, "Password")) return false;
+
+    // 等待一小段时间
+    delay(100);
+
+    // 发件人必须与登录用户名相同
+    client.print("MAIL FROM:<");
+    client.print(username);
+    client.println(">");
+    if (!smtpAwait(client, 250, "Sender")) return false;
+
+    client.print("RCPT TO:<");
+    client.print(emailRecipient);
+    client.println(">");
+    if (!smtpAwait(client, 250, "Recipient")) return false;
+
+    client.println("DATA");
+    if (!smtpAwait(client, 354, "Data")) return false;
+
+    // 格式化邮件头
+    client.println("From: 智能万年历 <15253286380@163.com>");
+    client.println("To: " + String(emailRecipient));
+    client.println("Subject: " + subject);
+    client.println("Content-Type: text/plain; charset=utf-8");
+    client.println();
+    
+    // 添加温湿度信息
+    float temperature = dht.readTemperature();
+    float humidity = dht.readHumidity();
+    String envInfo = "当前环境信息：\n温度: " + String(temperature, 1) + "°C\n湿度: " + String(humidity, 1) + "%\n\n";
+    
+    client.println(envInfo + body);
+    client.println(".");
+    if (!smtpAwait(client, 250, "Message")) return false;
+
+    client.println("QUIT");
+    smtpAwait(client, 221, "Quit");
+    client.stop();
+    Serial.println("✅ Email: success");
+    emailErrorMsg = "Email sent successfully";
+    return true;
 }
 
