@@ -1,4 +1,5 @@
 #include <Arduino.h>
+
 #include <TFT_eSPI.h>
 #include <SPI.h>
 #include <WiFi.h>
@@ -20,6 +21,7 @@
 #include "AudioGeneratorMP3.h"
 #include "AudioOutputI2S.h"
 #include <WiFiClientSecure.h>   // 新增：用于SMTP邮件发送
+
 
 
 /**************** MAX98357 I2S 引脚 ****************/
