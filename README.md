@@ -1,4 +1,6 @@
-# 智能万年历 - ESP32多功能显示器
+# 崇新学堂 开发创新性实践 I
+
+## 📚 课程项目：智能万年历 - ESP32多功能显示器
 
 ## 🌟 项目概述
 
@@ -26,6 +28,218 @@
 - DHT11: GPIO 10
 - 火焰传感器 DO: GPIO 9
 - 火焰传感器 AO: GPIO 8
+```
+
+## 📚 环境配置教程
+
+### 第一步：安装开发环境
+
+#### 1. 安装 PlatformIO IDE
+```bash
+# 方法1：使用VS Code扩展
+1. 安装 Visual Studio Code
+2. 在扩展商店搜索 "PlatformIO IDE"
+3. 安装 PlatformIO IDE 扩展
+
+# 方法2：使用命令行安装
+pip install platformio
+```
+
+#### 2. 安装必要的驱动
+- **ESP32驱动**：确保电脑能识别ESP32开发板
+- **CP2102/CH340驱动**：根据开发板的USB芯片型号安装
+
+### 第二步：克隆项目
+
+```bash
+# 克隆项目到本地
+git clone https://github.com/Hxxxz0/wannianli.git
+cd wannianli
+
+# 或者下载ZIP文件解压
+```
+
+### 第三步：配置 PlatformIO 项目
+
+#### 1. 打开项目
+```bash
+# 使用VS Code打开项目目录
+code .
+
+# 或者在VS Code中：File -> Open Folder -> 选择项目目录
+```
+
+#### 2. 检查 platformio.ini 配置
+```ini
+[env:esp32dev]
+platform = espressif32
+board = esp32dev
+framework = arduino
+monitor_speed = 115200
+board_build.partitions = huge_app.csv
+
+lib_deps = 
+    bodmer/TFT_eSPI@^2.5.0
+    bblanchon/ArduinoJson@^6.21.3
+    arduino-libraries/NTPClient@^3.2.1
+    me-no-dev/ESPAsyncWebServer@^1.2.3
+    adafruit/DHT sensor library@^1.4.4
+    earlephilhower/ESP8266Audio@^1.9.7
+```
+
+#### 3. 配置 TFT_eSPI 显示库
+```cpp
+// 在 User_Setup.h 中配置显示屏参数
+// 位置：~/.platformio/packages/framework-arduinoespressif32/libraries/TFT_eSPI/User_Setup.h
+
+// 取消注释您的显示屏型号，例如：
+#define ST7735_DRIVER
+// 或
+#define ILI9341_DRIVER
+
+// 配置引脚连接
+#define TFT_CS   5
+#define TFT_DC   2
+#define TFT_RST  4
+```
+
+### 第四步：准备文件系统
+
+#### 1. 创建 data 目录
+```bash
+mkdir -p data
+```
+
+#### 2. 添加音频文件
+```bash
+# 将音频文件放入 data 目录
+cp your_music.mp3 data/compressed_smaller.mp3
+cp your_alarm.mp3 data/beep_burst.mp3
+```
+
+#### 3. 上传文件系统
+```bash
+# 在PlatformIO终端中执行
+pio run --target uploadfs
+```
+
+### 第五步：编译和上传
+
+#### 1. 编译项目
+```bash
+# 在PlatformIO终端中执行
+pio run
+
+# 或使用VS Code界面：
+# 点击底部状态栏的 "✓" 按钮
+```
+
+#### 2. 上传到ESP32
+```bash
+# 连接ESP32到电脑，执行：
+pio run --target upload
+
+# 或使用VS Code界面：
+# 点击底部状态栏的 "→" 按钮
+```
+
+#### 3. 监控串口输出
+```bash
+# 查看运行日志
+pio device monitor
+
+# 或使用VS Code界面：
+# 点击底部状态栏的 "🔌" 按钮
+```
+
+### 第六步：首次配置
+
+#### 1. 连接设备热点
+```
+1. ESP32启动后会创建名为 "TV-PRO" 的热点
+2. 使用手机/电脑连接此热点（无密码）
+3. 打开浏览器访问：http://192.168.4.1
+```
+
+#### 2. 配置WiFi连接
+```
+1. 在配置页面输入您的WiFi名称和密码
+2. 点击"更新WiFi设置"
+3. 设备将自动重启并连接到您的WiFi
+```
+
+#### 3. 获取天气API密钥
+```
+1. 访问心知天气官网：https://www.seniverse.com/
+2. 注册账户并获取免费API密钥
+3. 在设备配置页面输入API密钥
+```
+
+### 第七步：功能测试
+
+#### 1. 基本功能测试
+```bash
+# 检查串口输出，确认以下功能正常：
+- WiFi连接成功
+- 时间同步成功
+- 天气数据获取成功
+- 传感器数据读取正常
+```
+
+#### 2. 音频功能测试
+```bash
+# 在Web配置界面测试：
+- 点击"播放音乐"按钮
+- 点击"蜂鸣器测试"按钮
+- 检查是否有声音输出
+```
+
+#### 3. 页面切换测试
+```bash
+# 使用按键测试：
+- 左键：上一页
+- 右键：下一页
+- 中键短按：返回主页
+- 中键长按：进入配置模式
+```
+
+## 🔧 常见问题解决
+
+### 编译错误
+```bash
+# 错误：找不到库文件
+解决：检查 lib_deps 配置，确保所有依赖库正确安装
+
+# 错误：分区表问题
+解决：在 platformio.ini 中添加：
+board_build.partitions = huge_app.csv
+```
+
+### 上传失败
+```bash
+# 错误：无法连接到设备
+解决：
+1. 检查USB线缆和驱动程序
+2. 按住ESP32的BOOT按钮，点击RST按钮
+3. 尝试降低上传速度：upload_speed = 115200
+```
+
+### 显示屏不显示
+```bash
+# 问题：屏幕黑屏或显示异常
+解决：
+1. 检查显示屏引脚连接
+2. 确认 TFT_eSPI 库配置正确
+3. 验证显示屏驱动型号
+```
+
+### WiFi连接失败
+```bash
+# 问题：无法连接WiFi
+解决：
+1. 确认WiFi名称和密码正确
+2. 检查WiFi是否为2.4GHz频段
+3. 查看串口输出的错误信息
 ```
 
 ## 🌟 核心功能
@@ -193,23 +407,6 @@
     earlephilhower/ESP8266Audio@^1.9.7
 ```
 
-## 🚀 快速开始
-
-1. **硬件连接**：按照引脚定义连接所有硬件
-2. **环境配置**：
-   - 安装PlatformIO IDE
-   - 下载项目代码
-   - 安装依赖库
-3. **文件准备**：
-   - 将音频文件放入`/data/`目录
-   - 上传SPIFFS文件系统
-4. **编译上传**：
-   - 编译并上传程序
-   - 首次启动进行WiFi配置
-5. **功能测试**：
-   - 测试各项功能
-   - 配置个人设置
-
 ## 📝 使用注意事项
 
 1. **音频文件**：
@@ -261,6 +458,7 @@ MIT License - 详见LICENSE文件
 
 ---
 
-**项目作者**：崇新学堂开发创新性实践I  
+**课程**：崇新学堂 开发创新性实践 I  
+**项目作者**：课程学员  
 **GitHub**：https://github.com/Hxxxz0/wannianli  
 **更新时间**：2024年 
